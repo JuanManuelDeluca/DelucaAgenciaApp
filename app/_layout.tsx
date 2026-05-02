@@ -1,7 +1,7 @@
 import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { Colors } from '../constants/Colors';
@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase';
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(tabs)',
+  initialRouteName: Platform.OS === 'web' ? 'login' : '(tabs)',
 };
 
 if (Platform.OS !== 'web') {
@@ -19,8 +19,6 @@ if (Platform.OS !== 'web') {
 }
 
 export default function RootLayout() {
-  const [authChecked, setAuthChecked] = useState(Platform.OS !== 'web');
-
   useEffect(() => {
     if (Platform.OS !== 'web') {
       requestPermissions();
@@ -29,33 +27,21 @@ export default function RootLayout() {
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace('/login');
+      if (data.session) {
+        router.replace('/(tabs)');
       }
-      setAuthChecked(true);
-    }).catch(() => {
-      router.replace('/login');
-      setAuthChecked(true);
-    });
+    }).catch(() => {});
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.replace('/login');
-      } else {
+      if (session) {
         router.replace('/(tabs)');
+      } else {
+        router.replace('/login');
       }
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
-
-  if (!authChecked) {
-    return (
-      <View style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={Colors.accent} size="large" />
-      </View>
-    );
-  }
 
   return (
     <>
