@@ -10,7 +10,8 @@ export function ExternalLink(
     <Link
       target="_blank"
       {...props}
-      // @ts-expect-error: External URLs are not typed.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       href={props.href}
       onPress={(e) => {
         if (Platform.OS !== 'web') {
