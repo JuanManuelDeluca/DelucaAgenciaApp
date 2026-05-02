@@ -1,7 +1,7 @@
 import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { Colors } from '../constants/Colors';
@@ -14,24 +14,27 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-SplashScreen.preventAutoHideAsync();
+if (Platform.OS !== 'web') {
+  SplashScreen.preventAutoHideAsync();
+}
 
 export default function RootLayout() {
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authChecked, setAuthChecked] = useState(Platform.OS !== 'web');
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
       requestPermissions();
       SplashScreen.hideAsync();
-      setAuthChecked(true);
       return;
     }
 
     supabase.auth.getSession().then(({ data }) => {
-      SplashScreen.hideAsync();
       if (!data.session) {
         router.replace('/login');
       }
+      setAuthChecked(true);
+    }).catch(() => {
+      router.replace('/login');
       setAuthChecked(true);
     });
 
@@ -46,7 +49,13 @@ export default function RootLayout() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  if (!authChecked) return null;
+  if (!authChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={Colors.accent} size="large" />
+      </View>
+    );
+  }
 
   return (
     <>
