@@ -55,6 +55,17 @@ function parseSheetCSV(text: string) {
       const gender: 'M' | 'F' = (genderRaw === 'f' || genderRaw === 'femenino' || genderRaw === 'jugadora') ? 'F' : 'M';
       const availRaw = (obj['disponibilidad'] || '').trim().toLowerCase();
       const availability: 'active' | 'inactive' = availRaw === 'inactivo' ? 'inactive' : 'active';
+      const bdRaw = (obj['fecha de nacimiento'] || obj['fecha_de_nacimiento'] || obj['birthday'] || '').trim();
+      let birthday: string | undefined;
+      if (bdRaw) {
+        // acepta DD/MM/YYYY o YYYY-MM-DD
+        const dmyMatch = bdRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (dmyMatch) {
+          birthday = `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(bdRaw)) {
+          birthday = bdRaw;
+        }
+      }
       return {
         name: (obj['nombre'] || '').trim(),
         photo: convertDriveUrl(obj['foto'] || ''),
@@ -64,6 +75,7 @@ function parseSheetCSV(text: string) {
         videoUrl: (obj['video'] || '').trim() || undefined,
         gender,
         availability,
+        birthday,
       };
     })
     .filter(p => p.name);
@@ -175,7 +187,7 @@ function sheetToPlayer(sp: ReturnType<typeof parseSheetCSV>[number], description
     position: sp.position,
     club: sp.club,
     gender: sp.gender,
-    birthday: undefined,
+    birthday: sp.birthday,
     description,
     videoUrl: sp.videoUrl,
     availability: sp.availability,
