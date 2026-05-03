@@ -52,8 +52,7 @@ export default function LoginScreen() {
         {!codeSent ? (
           <>
             <Text style={styles.desc}>
-              Te enviamos un código de acceso a{'\n'}
-              <Text style={styles.email}>{EMAIL}</Text>
+              Tocá el botón para recibir un código de acceso en tu mail.
             </Text>
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
@@ -67,8 +66,7 @@ export default function LoginScreen() {
         ) : (
           <>
             <Text style={styles.desc}>
-              Ingresá el código de 6 dígitos que llegó a{'\n'}
-              <Text style={styles.email}>{EMAIL}</Text>
+              Ingresá el código de 6 dígitos que llegó a tu mail.
             </Text>
             <TextInput
               style={styles.input}
