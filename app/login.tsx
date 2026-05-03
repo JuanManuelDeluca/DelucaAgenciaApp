@@ -18,7 +18,10 @@ export default function LoginScreen() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: EMAIL,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: 'https://juanmanueldeluca.github.io/DelucaAgenciaApp',
+      },
     });
     if (error) {
       Alert.alert('Error', 'No se pudo enviar el código. Intentá de nuevo.');
