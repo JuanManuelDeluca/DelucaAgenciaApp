@@ -63,7 +63,9 @@
         {
           "photosPermission": "Usamos tus fotos para agregar imágenes de jugadores."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

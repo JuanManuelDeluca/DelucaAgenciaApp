@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Image, RefreshControl,
+  TextInput, Image, RefreshControl, Alert,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,20 +49,19 @@ export default function PlayersScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
-    const data = await playerStorage.getAll();
-    setPlayers(data);
+    try {
+      const data = await playerStorage.getAll();
+      setPlayers(data);
+    } catch (err: any) {
+      Alert.alert('Error al cargar jugadores', err?.message ?? String(err));
+    }
   };
 
-  const syncAndLoad = async () => {
-    try { await playerStorage.syncFromSheets(); } catch { /* silencioso */ }
-    await load();
-  };
-
-  useFocusEffect(useCallback(() => { syncAndLoad(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await syncAndLoad();
+    await load();
     setRefreshing(false);
   };
 

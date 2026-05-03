@@ -16,6 +16,19 @@ function convertDriveUrl(url: string): string | undefined {
   return url || undefined;
 }
 
+async function resolveGoogleDocText(value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined;
+  const match = value.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) return value;
+  try {
+    const res = await fetch(`https://docs.google.com/document/d/${match[1]}/export?format=txt`);
+    if (!res.ok) return value;
+    return (await res.text()).trim() || undefined;
+  } catch {
+    return value;
+  }
+}
+
 function splitCSVRow(row: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -39,7 +52,7 @@ function parseSheetCSV(text: string) {
       const obj: Record<string, string> = {};
       headers.forEach((h, i) => { obj[h] = cols[i] || ''; });
       const genderRaw = (obj['sexo'] || '').trim().toLowerCase();
-      const gender: 'M' | 'F' = (genderRaw === 'f' || genderRaw === 'femenino') ? 'F' : 'M';
+      const gender: 'M' | 'F' = (genderRaw === 'f' || genderRaw === 'femenino' || genderRaw === 'jugadora') ? 'F' : 'M';
       const availRaw = (obj['disponibilidad'] || '').trim().toLowerCase();
       const availability: 'active' | 'inactive' = availRaw === 'inactivo' ? 'inactive' : 'active';
       return {
@@ -150,11 +163,43 @@ function toEvent(row: any): AgencyEvent {
 
 // ─── Players ────────────────────────────────────────────────────────────────
 
+function sheetPlayerId(name: string): string {
+  return 'sheet_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
+function sheetToPlayer(sp: ReturnType<typeof parseSheetCSV>[number], description?: string): Player {
+  return {
+    id: sheetPlayerId(sp.name),
+    name: sp.name,
+    photo: sp.photo,
+    position: sp.position,
+    club: sp.club,
+    gender: sp.gender,
+    birthday: undefined,
+    description,
+    videoUrl: sp.videoUrl,
+    availability: sp.availability,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function fetchSheetPlayers(): Promise<ReturnType<typeof parseSheetCSV>> {
+  const res = await fetch(SHEET_CSV_URL);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return parseSheetCSV(await res.text());
+}
+
 export const playerStorage = {
   async getAll(): Promise<Player[]> {
-    const { data, error } = await supabase.from('players').select('*').order('name');
-    if (error) throw error;
-    return (data ?? []).map(toPlayer);
+    const raw = await fetchSheetPlayers();
+    return raw.map(sp => sheetToPlayer(sp));
+  },
+  async getById(id: string): Promise<Player | undefined> {
+    const raw = await fetchSheetPlayers();
+    const sp = raw.find(p => sheetPlayerId(p.name) === id);
+    if (!sp) return undefined;
+    const description = await resolveGoogleDocText(sp.description);
+    return sheetToPlayer(sp, description);
   },
   async add(data: Omit<Player, 'id' | 'createdAt'>): Promise<Player> {
     const row = { id: uid(), ...fromPlayer(data), created_at: new Date().toISOString() };
@@ -169,43 +214,6 @@ export const playerStorage = {
   async delete(id: string): Promise<void> {
     const { error } = await supabase.from('players').delete().eq('id', id);
     if (error) throw error;
-  },
-  async getById(id: string): Promise<Player | undefined> {
-    const { data, error } = await supabase.from('players').select('*').eq('id', id).single();
-    if (error) return undefined;
-    return toPlayer(data);
-  },
-  async syncFromSheets(): Promise<{ added: number; updated: number }> {
-    const res = await fetch(SHEET_CSV_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const sheetPlayers = parseSheetCSV(await res.text());
-
-    const { data: existing } = await supabase.from('players').select('id, name');
-    const byName = new Map<string, string>();
-    (existing ?? []).forEach(p => byName.set(p.name.toLowerCase().trim(), p.id));
-
-    let added = 0, updated = 0;
-    for (const sp of sheetPlayers) {
-      const row = {
-        name: sp.name,
-        photo: sp.photo ?? null,
-        position: sp.position,
-        club: sp.club,
-        gender: sp.gender,
-        description: sp.description ?? null,
-        video_url: sp.videoUrl ?? null,
-        availability: sp.availability,
-      };
-      const existingId = byName.get(sp.name.toLowerCase().trim());
-      if (existingId) {
-        await supabase.from('players').update(row).eq('id', existingId);
-        updated++;
-      } else {
-        await supabase.from('players').insert({ id: uid(), ...row, created_at: new Date().toISOString() });
-        added++;
-      }
-    }
-    return { added, updated };
   },
 };
 
