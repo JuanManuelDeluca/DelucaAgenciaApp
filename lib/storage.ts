@@ -1,8 +1,59 @@
 import { supabase } from './supabase';
 import { Player, PlayerNote, Task, Team, ScoutedPlayer, AgencyEvent } from '../types';
 
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1TWntlnHPG7ogpIjC2J06-WGtRlji4oKdXoiLMHFSmE8/export?format=csv';
+
 function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
+function convertDriveUrl(url: string): string | undefined {
+  if (!url) return undefined;
+  const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}`;
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch) return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  return url || undefined;
+}
+
+function splitCSVRow(row: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (const char of row) {
+    if (char === '"') { inQuotes = !inQuotes; }
+    else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+    else { current += char; }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseSheetCSV(text: string) {
+  const [headerLine, ...rows] = text.trim().split('\n');
+  const headers = splitCSVRow(headerLine).map(h => h.toLowerCase().trim());
+  return rows
+    .filter(r => r.trim())
+    .map(row => {
+      const cols = splitCSVRow(row);
+      const obj: Record<string, string> = {};
+      headers.forEach((h, i) => { obj[h] = cols[i] || ''; });
+      const genderRaw = (obj['sexo'] || '').trim().toLowerCase();
+      const gender: 'M' | 'F' = (genderRaw === 'f' || genderRaw === 'femenino') ? 'F' : 'M';
+      const availRaw = (obj['disponibilidad'] || '').trim().toLowerCase();
+      const availability: 'active' | 'inactive' = availRaw === 'inactivo' ? 'inactive' : 'active';
+      return {
+        name: (obj['nombre'] || '').trim(),
+        photo: convertDriveUrl(obj['foto'] || ''),
+        position: (obj['posicion'] || 'Base').trim(),
+        club: (obj['club'] || '').trim(),
+        description: (obj['descripcion'] || '').trim() || undefined,
+        videoUrl: (obj['video'] || '').trim() || undefined,
+        gender,
+        availability,
+      };
+    })
+    .filter(p => p.name);
 }
 
 // ─── Mappers ────────────────────────────────────────────────────────────────
@@ -123,6 +174,38 @@ export const playerStorage = {
     const { data, error } = await supabase.from('players').select('*').eq('id', id).single();
     if (error) return undefined;
     return toPlayer(data);
+  },
+  async syncFromSheets(): Promise<{ added: number; updated: number }> {
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const sheetPlayers = parseSheetCSV(await res.text());
+
+    const { data: existing } = await supabase.from('players').select('id, name');
+    const byName = new Map<string, string>();
+    (existing ?? []).forEach(p => byName.set(p.name.toLowerCase().trim(), p.id));
+
+    let added = 0, updated = 0;
+    for (const sp of sheetPlayers) {
+      const row = {
+        name: sp.name,
+        photo: sp.photo ?? null,
+        position: sp.position,
+        club: sp.club,
+        gender: sp.gender,
+        description: sp.description ?? null,
+        video_url: sp.videoUrl ?? null,
+        availability: sp.availability,
+      };
+      const existingId = byName.get(sp.name.toLowerCase().trim());
+      if (existingId) {
+        await supabase.from('players').update(row).eq('id', existingId);
+        updated++;
+      } else {
+        await supabase.from('players').insert({ id: uid(), ...row, created_at: new Date().toISOString() });
+        added++;
+      }
+    }
+    return { added, updated };
   },
 };
 

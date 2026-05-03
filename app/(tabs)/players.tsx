@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   TextInput, Image, RefreshControl,
@@ -53,11 +53,16 @@ export default function PlayersScreen() {
     setPlayers(data);
   };
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  const syncAndLoad = async () => {
+    try { await playerStorage.syncFromSheets(); } catch { /* silencioso */ }
+    await load();
+  };
+
+  useFocusEffect(useCallback(() => { syncAndLoad(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await syncAndLoad();
     setRefreshing(false);
   };
 
