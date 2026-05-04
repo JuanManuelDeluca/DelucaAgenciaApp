@@ -45,9 +45,13 @@ export default function PlayerScreen() {
 
   const addNote = async () => {
     if (!newNote.trim()) return;
-    const note = await noteStorage.add(id, newNote.trim());
-    setNotes(prev => [note, ...prev]);
-    setNewNote('');
+    try {
+      const note = await noteStorage.add(id, newNote.trim());
+      setNotes(prev => [note, ...prev]);
+      setNewNote('');
+    } catch (e: any) {
+      Alert.alert('Error', 'No se pudo guardar la nota.');
+    }
   };
 
   const saveEdit = async () => {
@@ -72,14 +76,18 @@ export default function PlayerScreen() {
 
   const addTask = async () => {
     if (!newTask.trim()) return;
-    const task = await taskStorage.add({
-      title: newTask.trim(),
-      status: 'pending',
-      priority: 'medium',
-      playerId: id,
-    });
-    setTasks(prev => [task, ...prev]);
-    setNewTask('');
+    try {
+      const task = await taskStorage.add({
+        title: newTask.trim(),
+        status: 'pending',
+        priority: 'medium',
+        playerId: id,
+      });
+      setTasks(prev => [task, ...prev]);
+      setNewTask('');
+    } catch (e: any) {
+      Alert.alert('Error', 'No se pudo guardar la tarea.');
+    }
   };
 
   const toggleTask = async (task: Task) => {

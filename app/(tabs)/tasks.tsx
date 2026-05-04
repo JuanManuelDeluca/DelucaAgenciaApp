@@ -90,7 +90,7 @@ export default function TasksScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = async () => {
-    const [t, p] = await Promise.all([taskStorage.getGeneral(), playerStorage.getAll()]);
+    const [t, p] = await Promise.all([taskStorage.getAll(), playerStorage.getAll()]);
     setTasks(t);
     setPlayers(p);
   };
