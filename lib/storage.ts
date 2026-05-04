@@ -453,8 +453,8 @@ export const eventStorage = {
     const birthdays = players
       .filter(p => p.birthday)
       .map(p => {
-        const bday = new Date(p.birthday!);
-        const next = new Date(now.getFullYear(), bday.getMonth(), bday.getDate());
+        const [by, bm, bd] = p.birthday!.split('-').map(Number);
+        const next = new Date(now.getFullYear(), bm - 1, bd);
         if (next < now) next.setFullYear(now.getFullYear() + 1);
         return {
           id: `birthday_${p.id}`,

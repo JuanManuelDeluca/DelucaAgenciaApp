@@ -119,8 +119,12 @@ export default function PlayerScreen() {
   );
 
   const initials = player.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const parseBirthdayLocal = (bd: string) => {
+    const [y, m, d] = bd.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
   const age = player.birthday
-    ? Math.floor((Date.now() - new Date(player.birthday).getTime()) / 31557600000)
+    ? Math.floor((Date.now() - parseBirthdayLocal(player.birthday).getTime()) / 31557600000)
     : null;
 
   return (
@@ -302,7 +306,7 @@ export default function PlayerScreen() {
                 <View style={styles.infoCard}>
                   <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
                   <Text style={styles.infoValue}>
-                    {new Date(player.birthday).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {parseBirthdayLocal(player.birthday).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     {age !== null ? ` (${age} años)` : ''}
                   </Text>
                 </View>
